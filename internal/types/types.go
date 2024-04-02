@@ -7,6 +7,7 @@ import (
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	rpchttp "github.com/cometbft/cometbft/rpc/client/http"
+	authz "github.com/cosmos/cosmos-sdk/x/authz"
 	"github.com/ignite/cli/ignite/pkg/cosmosclient"
 	clquery "github.com/osmosis-labs/osmosis/v21/x/concentrated-liquidity/client/queryproto"
 	pmquery "github.com/osmosis-labs/osmosis/v21/x/poolmanager/client/queryproto"
@@ -90,6 +91,7 @@ type Pool struct {
 type BlockchainClients struct {
 	CosmosClient    *cosmosclient.Client
 	WebsocketClient *rpchttp.HTTP
+	AuthZ           authz.QueryClient
 	WasmClient      wasmtypes.QueryClient
 	GRPCClient      *grpc.ClientConn
 	PMClient        pmquery.QueryClient
