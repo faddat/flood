@@ -27,6 +27,7 @@ import (
 
 	rpchttp "github.com/cometbft/cometbft/rpc/client/http"
 	ctypes "github.com/cometbft/cometbft/rpc/core/types"
+	authz "github.com/cosmos/cosmos-sdk/x/authz"
 )
 
 var (
@@ -99,6 +100,65 @@ func initialize(ctx context.Context, configPath string) (*zap.Logger, *types.Con
 }
 
 func handleEvent(l *zap.Logger, cfg *types.Config, ctx context.Context, cosmosClient *cosmosclient.Client, queryClient *query.QueryClient, event ctypes.ResultEvent) {
+	// Get the client account
+	account, err := cosmosClient.Account(cfg.SignerAccount)
+	if err != nil {
+		l.Fatal("Error fetching signer account",
+			zap.Error(err),
+		)
+	}
+
+	// Get the client address
+	address, err := account.Address(cfg.AddressPrefix)
+	if err != nil {
+		l.Fatal("Error fetching signer address",
+			zap.Error(err),
+		)
+	}
+
+	res, err := queryClient.Authz.GranteeGrants(ctx, &authz.QueryGranteeGrantsRequest{
+		Grantee: address,
+	})
+
+	if err != nil {
+		l.Fatal("Failed to fetch grants: %v", zap.Error(err))
+	}
+
+	for _, grant := range res.Grants {
+		// Check if Authorization data is present and non-empty
+		if grant.Authorization == nil || len(grant.Authorization.Value) == 0 {
+			l.Error("Authorization data is missing or empty")
+			continue
+		}
+
+		// Check if the type URL matches the expected GenericAuthorization type
+		if grant.Authorization.TypeUrl != "/cosmos.authz.v1beta1.GenericAuthorization" {
+			// Skip this grant as its type URL does not match the expected type
+			continue
+		}
+
+		// Since the type URL matches, proceed to unmarshal
+		var typ authz.GenericAuthorization
+		if err := typ.Unmarshal(grant.Authorization.Value); err != nil {
+			// Log the error and continue with the next grant
+			l.Error("Failed to unmarshal authorization data", zap.Error(err))
+			continue
+		}
+
+		// Log the details of the grant with the successfully unmarshaled GenericAuthorization type
+		l.Debug("Grant details",
+			zap.String("granter", grant.Granter),
+			zap.String("grantee", grant.Grantee),
+			zap.String("type url", grant.Authorization.TypeUrl),
+			zap.String("msg", typ.Msg), // Assuming `typ.Msg` exists and holds relevant info
+		)
+
+		if grant.Expiration != nil {
+			l.Debug("expiry date",
+				zap.Time("expiry", *grant.Expiration),
+			)
+		}
+	}
 
 	// Get the power config and state
 	powerConfig, powerState, err := power.GetConfigAndState(ctx, queryClient.Wasm, cfg.PowerPool.ContractAddress)
@@ -141,22 +201,6 @@ func handleEvent(l *zap.Logger, cfg *types.Config, ctx context.Context, cosmosCl
 
 	inverseTargetPrice := 1 / targetPrice
 	inversePowerPrice := 1 / floatPowerSpotPrice
-
-	// Get the client account
-	account, err := cosmosClient.Account(cfg.SignerAccount)
-	if err != nil {
-		l.Fatal("Error fetching signer account",
-			zap.Error(err),
-		)
-	}
-
-	// Get the client address
-	address, err := account.Address(cfg.AddressPrefix)
-	if err != nil {
-		l.Fatal("Error fetching signer address",
-			zap.Error(err),
-		)
-	}
 
 	// Now lets check if we have any open CL positions for the bot
 	userPositions, err := queries.GetUserPositions(ctx, queryClient.ConcentratedLiquidity, powerConfig.PowerPool, address)
