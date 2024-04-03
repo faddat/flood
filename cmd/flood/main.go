@@ -13,7 +13,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"github.com/margined-protocol/flood/internal/authz"
+	floodauthz "github.com/margined-protocol/flood/internal/authz"
 	"github.com/margined-protocol/flood/internal/config"
 	"github.com/margined-protocol/flood/internal/liquidity"
 	"github.com/margined-protocol/flood/internal/logger"
@@ -23,6 +23,8 @@ import (
 	"github.com/margined-protocol/flood/internal/query"
 	"github.com/margined-protocol/flood/internal/types"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/x/authz"
 	"github.com/ignite/cli/ignite/pkg/cosmosaccount"
 	"github.com/ignite/cli/ignite/pkg/cosmosclient"
 
@@ -116,89 +118,101 @@ func handleEvent(l *zap.Logger, cfg *types.Config, ctx context.Context, cosmosCl
 		)
 	}
 
-	validGranters, err := authz.GetValidGrantersWithRequiredGrants(ctx, queryClient, address, l)
+	validGranters, err := floodauthz.GetValidGrantersWithRequiredGrants(ctx, queryClient, address, l)
 	if err != nil {
 		l.Fatal("Error fetching valid granters", zap.Error(err))
 	}
 
-	for _, grantee := range validGranters {
-		l.Debug("Grantee with all required grants", zap.String("grantee", grantee))
+	// Initialize a slice to hold all messages
+	var allMsgs []sdk.Msg
+
+	for _, granter := range validGranters {
+		l.Debug("Granter with all required grants", zap.String("granter", granter))
+
+		// Get the power config and state
+		powerConfig, powerState, err := power.GetConfigAndState(ctx, queryClient.Wasm, cfg.PowerPool.ContractAddress)
+		if err != nil {
+			l.Fatal("Failed to get config and state: %v", zap.Error(err))
+		}
+
+		// Get the spotprices for base and power
+		baseSpotPrice, powerSpotPrice, err := queries.GetSpotPrices(ctx, queryClient.PoolManager, powerConfig)
+		if err != nil {
+			l.Fatal("Failed to fetch spot prices", zap.Error(err))
+		}
+
+		// Calculate the mark price
+		markPrice, err := maths.CalculateMarkPrice(baseSpotPrice, powerSpotPrice, powerState.NormalisationFactor, powerConfig.IndexScale)
+		if err != nil {
+			l.Fatal("Failed to calculate mark price", zap.Error(err))
+		}
+
+		// Calcuate the index price
+		indexPrice, err := maths.CalculateIndexPrice(baseSpotPrice)
+		if err != nil {
+			l.Fatal("Failed to calculate index price", zap.Error(err))
+		}
+
+		// Calculate the target price
+		targetPrice, err := maths.CalculateTargetPrice(baseSpotPrice, powerState.NormalisationFactor, powerConfig.IndexScale)
+		if err != nil {
+			l.Fatal("Failed to calculate target price", zap.Error(err))
+		}
+
+		// Calculate the premium
+		premium := maths.CalculatePremium(markPrice, indexPrice)
+
+		// get inverse target and spot prices
+		floatPowerSpotPrice, err := strconv.ParseFloat(powerSpotPrice, 64)
+		if err != nil {
+			l.Fatal("Failed to parse power spot price", zap.Error(err))
+		}
+
+		inverseTargetPrice := 1 / targetPrice
+		inversePowerPrice := 1 / floatPowerSpotPrice
+
+		// Now lets check if we have any open CL positions for the granter
+		userPositions, err := queries.GetUserPositions(ctx, queryClient.ConcentratedLiquidity, powerConfig.PowerPool, granter)
+		if err != nil {
+			l.Fatal("Failed to find user positions", zap.Error(err))
+		}
+
+		currentTick, err := queries.GetCurrentTick(ctx, queryClient.PoolManager, powerConfig.PowerPool.ID)
+		if err != nil {
+			l.Fatal("Failed to get current tick", zap.Error(err))
+		}
+
+		// Sanity check computations
+		l.Debug("Summary data",
+			zap.Float64("mark_price", markPrice),
+			zap.Float64("target_price", targetPrice),
+			zap.Float64("inverse_target_price", inverseTargetPrice),
+			zap.String("power_price", powerSpotPrice),
+			zap.Float64("inverse_power_price", inversePowerPrice),
+			zap.Float64("premium", premium),
+			zap.String("normalization_factor", powerState.NormalisationFactor),
+			zap.Int64("current_tick", currentTick),
+		)
+
+		powerPriceStr := fmt.Sprintf("%f", inversePowerPrice)
+		targetPriceStr := fmt.Sprintf("%f", inverseTargetPrice)
+
+		msgs, err := liquidity.CreateUpdatePositionMsgs(l, *userPositions, cfg, currentTick, granter, powerPriceStr, targetPriceStr)
+		if err != nil {
+			l.Fatal("Failed to create update position msgs", zap.Error(err))
+		}
+
+		allMsgs = append(allMsgs, msgs...)
 	}
 
-	// Get the power config and state
-	powerConfig, powerState, err := power.GetConfigAndState(ctx, queryClient.Wasm, cfg.PowerPool.ContractAddress)
+	grantee, err := sdk.AccAddressFromBech32(address)
 	if err != nil {
-		l.Fatal("Failed to get config and state: %v", zap.Error(err))
+		l.Error("Failed to generate AccAddress", zap.String("address", address))
 	}
 
-	// Get the spotprices for base and power
-	baseSpotPrice, powerSpotPrice, err := queries.GetSpotPrices(ctx, queryClient.PoolManager, powerConfig)
-	if err != nil {
-		l.Fatal("Failed to fetch spot prices", zap.Error(err))
-	}
+	msgExec := authz.NewMsgExec(grantee, allMsgs)
 
-	// Calculate the mark price
-	markPrice, err := maths.CalculateMarkPrice(baseSpotPrice, powerSpotPrice, powerState.NormalisationFactor, powerConfig.IndexScale)
-	if err != nil {
-		l.Fatal("Failed to calculate mark price", zap.Error(err))
-	}
-
-	// Calcuate the index price
-	indexPrice, err := maths.CalculateIndexPrice(baseSpotPrice)
-	if err != nil {
-		l.Fatal("Failed to calculate index price", zap.Error(err))
-	}
-
-	// Calculate the target price
-	targetPrice, err := maths.CalculateTargetPrice(baseSpotPrice, powerState.NormalisationFactor, powerConfig.IndexScale)
-	if err != nil {
-		l.Fatal("Failed to calculate target price", zap.Error(err))
-	}
-
-	// Calculate the premium
-	premium := maths.CalculatePremium(markPrice, indexPrice)
-
-	// get inverse target and spot prices
-	floatPowerSpotPrice, err := strconv.ParseFloat(powerSpotPrice, 64)
-	if err != nil {
-		l.Fatal("Failed to parse power spot price", zap.Error(err))
-	}
-
-	inverseTargetPrice := 1 / targetPrice
-	inversePowerPrice := 1 / floatPowerSpotPrice
-
-	// Now lets check if we have any open CL positions for the bot
-	userPositions, err := queries.GetUserPositions(ctx, queryClient.ConcentratedLiquidity, powerConfig.PowerPool, address)
-	if err != nil {
-		l.Fatal("Failed to find user positions", zap.Error(err))
-	}
-
-	currentTick, err := queries.GetCurrentTick(ctx, queryClient.PoolManager, powerConfig.PowerPool.ID)
-	if err != nil {
-		l.Fatal("Failed to get current tick", zap.Error(err))
-	}
-
-	// Sanity check computations
-	l.Debug("Summary data",
-		zap.Float64("mark_price", markPrice),
-		zap.Float64("target_price", targetPrice),
-		zap.Float64("inverse_target_price", inverseTargetPrice),
-		zap.String("power_price", powerSpotPrice),
-		zap.Float64("inverse_power_price", inversePowerPrice),
-		zap.Float64("premium", premium),
-		zap.String("normalization_factor", powerState.NormalisationFactor),
-		zap.Int64("current_tick", currentTick),
-	)
-
-	powerPriceStr := fmt.Sprintf("%f", inversePowerPrice)
-	targetPriceStr := fmt.Sprintf("%f", inverseTargetPrice)
-
-	msgs, err := liquidity.CreateUpdatePositionMsgs(l, *userPositions, cfg, currentTick, address, powerPriceStr, targetPriceStr)
-	if err != nil {
-		l.Fatal("Failed to create update position msgs", zap.Error(err))
-	}
-
-	txResp, err := cosmosClient.BroadcastTx(ctx, account, msgs...)
+	txResp, err := cosmosClient.BroadcastTx(ctx, account, &msgExec)
 	if err != nil {
 		l.Error("Transaction error",
 			zap.Error(err),
