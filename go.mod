@@ -16,46 +16,6 @@ require (
 	gotest.tools v2.2.0+incompatible
 )
 
-// replace like v23 osmosis, a literal copy pasta for sanity
-replace (
-	// adds expedited proposal support and 1000MB cache default
-	// https://github.com/osmosis-labs/wasmd/releases/tag/v0.45.0-osmo
-	github.com/CosmWasm/wasmd => github.com/osmosis-labs/wasmd v0.45.0-osmo
-
-	// cometbft is replaced to print custom app hash logs. Using branch osmo-v23/v0.37.4.
-	github.com/cometbft/cometbft => github.com/osmosis-labs/cometbft v0.37.4-v23-osmo-3
-
-	// v1.0.0-beta.3 is incompatible, so we use v1.0.0-beta.2
-	github.com/cosmos/cosmos-proto => github.com/cosmos/cosmos-proto v1.0.0-beta.2
-
-	// Our cosmos-sdk branch is: https://github.com/osmosis-labs/cosmos-sdk/tree/osmo-v23/v0.47.5, current branch: osmo-v23/v0.47.5. Direct commit link: https://github.com/osmosis-labs/cosmos-sdk/commit/f49152f2ec1750b0d744f74892d341ce93c6a421
-	// https://github.com/osmosis-labs/cosmos-sdk/releases/tag/v0.47.5-v23-osmo-5
-	github.com/cosmos/cosmos-sdk => github.com/osmosis-labs/cosmos-sdk v0.47.5-v23-osmo-5
-	github.com/cosmos/gogoproto => github.com/cosmos/gogoproto v1.4.10
-	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
-
-	// We explicitly use commits from the `v23.x` branch in https://github.com/osmosis-labs/sqs
-	github.com/osmosis-labs/sqs/sqsdomain => github.com/osmosis-labs/sqs/sqsdomain v0.0.0-20240208034521-124b6eed4927
-	// replace as directed by sdk upgrading.md https://github.com/cosmos/cosmos-sdk/blob/393de266c8675dc16cc037c1a15011b1e990975f/UPGRADING.md?plain=1#L713
-	github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
-
-	// newer versions of exp treat sorting differently, which is incompatible with the current version of cosmos-sdk
-	golang.org/x/exp => golang.org/x/exp v0.0.0-20230711153332-06a737ee72cb
-
-// Local replaces commented for development
-// github.com/osmosis-labs/osmosis/osmomath => ./osmomath
-// github.com/osmosis-labs/osmosis/osmoutils => ./osmoutils
-// github.com/osmosis-labs/osmosis/x/epochs => ./x/epochs
-// github.com/osmosis-labs/osmosis/x/ibc-hooks => ./x/ibc-hooks
-)
-
-// exclusion so we use v1.0.0
-exclude github.com/coinbase/rosetta-sdk-go v0.7.9
-
-exclude github.com/cosmos/cosmos-sdk v0.50.1
-
-exclude github.com/cometbft/cometbft v0.38.0
-
 require (
 	cloud.google.com/go v0.112.0 // indirect
 	cloud.google.com/go/compute v1.23.3 // indirect
@@ -250,3 +210,43 @@ require (
 	pgregory.net/rapid v0.5.5 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
+
+// replace like v23 osmosis, a literal copy pasta for sanity
+replace (
+	// adds expedited proposal support and 1000MB cache default
+	// https://github.com/osmosis-labs/wasmd/releases/tag/v0.45.0-osmo
+	github.com/CosmWasm/wasmd => github.com/osmosis-labs/wasmd v0.45.0-osmo
+
+	// cometbft is replaced to print custom app hash logs. Using branch osmo-v23/v0.37.4.
+	github.com/cometbft/cometbft => github.com/osmosis-labs/cometbft v0.37.4-v23-osmo-3
+
+	// v1.0.0-beta.3 is incompatible, so we use v1.0.0-beta.2
+	github.com/cosmos/cosmos-proto => github.com/cosmos/cosmos-proto v1.0.0-beta.2
+
+	// Our cosmos-sdk branch is: https://github.com/osmosis-labs/cosmos-sdk/tree/osmo-v23/v0.47.5, current branch: osmo-v23/v0.47.5. Direct commit link: https://github.com/osmosis-labs/cosmos-sdk/commit/f49152f2ec1750b0d744f74892d341ce93c6a421
+	// https://github.com/osmosis-labs/cosmos-sdk/releases/tag/v0.47.5-v23-osmo-5
+	github.com/cosmos/cosmos-sdk => github.com/osmosis-labs/cosmos-sdk v0.47.5-v23-osmo-5
+	github.com/cosmos/gogoproto => github.com/cosmos/gogoproto v1.4.10
+	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
+
+	// We explicitly use commits from the `v23.x` branch in https://github.com/osmosis-labs/sqs
+	github.com/osmosis-labs/sqs/sqsdomain => github.com/osmosis-labs/sqs/sqsdomain v0.0.0-20240208034521-124b6eed4927
+	// replace as directed by sdk upgrading.md https://github.com/cosmos/cosmos-sdk/blob/393de266c8675dc16cc037c1a15011b1e990975f/UPGRADING.md?plain=1#L713
+	github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
+
+	// newer versions of exp treat sorting differently, which is incompatible with the current version of cosmos-sdk
+	golang.org/x/exp => golang.org/x/exp v0.0.0-20230711153332-06a737ee72cb
+
+// Local replaces commented for development
+// github.com/osmosis-labs/osmosis/osmomath => ./osmomath
+// github.com/osmosis-labs/osmosis/osmoutils => ./osmoutils
+// github.com/osmosis-labs/osmosis/x/epochs => ./x/epochs
+// github.com/osmosis-labs/osmosis/x/ibc-hooks => ./x/ibc-hooks
+)
+
+// exclusion so we use v1.0.0
+exclude github.com/coinbase/rosetta-sdk-go v0.7.9
+
+exclude github.com/cosmos/cosmos-sdk v0.50.1
+
+exclude github.com/cometbft/cometbft v0.38.0
