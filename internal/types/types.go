@@ -3,14 +3,14 @@ package types
 import (
 	"context"
 
-	"go.uber.org/zap"
-
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
-	rpchttp "github.com/cometbft/cometbft/rpc/client/http"
 	"github.com/ignite/cli/ignite/pkg/cosmosclient"
-	clquery "github.com/osmosis-labs/osmosis/v21/x/concentrated-liquidity/client/queryproto"
-	pmquery "github.com/osmosis-labs/osmosis/v21/x/poolmanager/client/queryproto"
+	clquery "github.com/osmosis-labs/osmosis/v23/x/concentrated-liquidity/client/queryproto"
+	pmquery "github.com/osmosis-labs/osmosis/v23/x/poolmanager/client/queryproto"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
+
+	rpchttp "github.com/cometbft/cometbft/rpc/client/http"
 )
 
 type SigningKey struct {

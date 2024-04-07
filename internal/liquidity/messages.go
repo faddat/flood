@@ -1,11 +1,11 @@
 package liquidity
 
 import (
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	clquery "github.com/osmosis-labs/osmosis/v21/x/concentrated-liquidity/client/queryproto"
+	"github.com/margined-protocol/flood/internal/types"
+	clquery "github.com/osmosis-labs/osmosis/v23/x/concentrated-liquidity/client/queryproto"
 	"go.uber.org/zap"
 
-	"github.com/margined-protocol/flood/internal/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 func CreateUpdatePositionMsgs(l *zap.Logger, p clquery.UserPositionsResponse, cfg *types.Config, currentTick int64, address, powerPrice, targetPrice string) ([]sdk.Msg, error) {
@@ -75,5 +75,4 @@ func CreateUpdatePositionMsgs(l *zap.Logger, p clquery.UserPositionsResponse, cf
 	}
 
 	return append(msgs, positionMsgs...), nil
-
 }

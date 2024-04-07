@@ -8,13 +8,9 @@ import (
 	"os"
 	"strconv"
 
-	"go.uber.org/zap"
-
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
-
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-
+	"github.com/ignite/cli/ignite/pkg/cosmosaccount"
+	"github.com/ignite/cli/ignite/pkg/cosmosclient"
 	"github.com/margined-protocol/flood/internal/config"
 	"github.com/margined-protocol/flood/internal/liquidity"
 	"github.com/margined-protocol/flood/internal/logger"
@@ -22,14 +18,14 @@ import (
 	"github.com/margined-protocol/flood/internal/power"
 	"github.com/margined-protocol/flood/internal/queries"
 	"github.com/margined-protocol/flood/internal/types"
-
-	"github.com/ignite/cli/ignite/pkg/cosmosaccount"
-	"github.com/ignite/cli/ignite/pkg/cosmosclient"
+	clquery "github.com/osmosis-labs/osmosis/v23/x/concentrated-liquidity/client/queryproto"
+	pmquery "github.com/osmosis-labs/osmosis/v23/x/poolmanager/client/queryproto"
+	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	rpchttp "github.com/cometbft/cometbft/rpc/client/http"
 	ctypes "github.com/cometbft/cometbft/rpc/core/types"
-	clquery "github.com/osmosis-labs/osmosis/v21/x/concentrated-liquidity/client/queryproto"
-	pmquery "github.com/osmosis-labs/osmosis/v21/x/poolmanager/client/queryproto"
 )
 
 var (
@@ -102,7 +98,6 @@ func initialize(ctx context.Context, configPath string) (*zap.Logger, *types.Con
 }
 
 func handleEvent(l *zap.Logger, cfg *types.Config, ctx context.Context, address string, account cosmosaccount.Account, clients types.BlockchainClients, event ctypes.ResultEvent) {
-
 	// Get the power config and state
 	powerConfig, powerState, err := power.GetConfigAndState(ctx, clients.WasmClient, clients.Config.PowerPool.ContractAddress)
 	if err != nil {
@@ -277,5 +272,4 @@ func main() {
 
 	// Keep the main goroutine running
 	select {}
-
 }

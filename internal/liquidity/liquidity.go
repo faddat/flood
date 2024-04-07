@@ -4,13 +4,15 @@ import (
 	"errors"
 	"fmt"
 
-	sdkmath "cosmossdk.io/math"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
-	clmath "github.com/osmosis-labs/osmosis/v21/x/concentrated-liquidity/math"
-	model "github.com/osmosis-labs/osmosis/v21/x/concentrated-liquidity/model"
-	cltypes "github.com/osmosis-labs/osmosis/v21/x/concentrated-liquidity/types"
+	clmath "github.com/osmosis-labs/osmosis/v23/x/concentrated-liquidity/math"
+	model "github.com/osmosis-labs/osmosis/v23/x/concentrated-liquidity/model"
+	cltypes "github.com/osmosis-labs/osmosis/v23/x/concentrated-liquidity/types"
 	"go.uber.org/zap"
+
+	sdkmath "cosmossdk.io/math"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 const TICK_SPACING = int64(100)
@@ -122,7 +124,6 @@ func MarketMake(l *zap.Logger, poolId uint64, currentTick int64, spotPrice, targ
 }
 
 func adjustForCurrentTick(l *zap.Logger, isBuy bool, currentTick, lowerTick, upperTick int64) (int64, int64) {
-
 	fmt.Println("lowerTick", lowerTick)
 
 	if lowerTick <= currentTick && currentTick <= upperTick {
@@ -188,7 +189,6 @@ func calculateBuySellTicks(l *zap.Logger, buyPrice, sellPrice, spread osmomath.B
 	}
 
 	return buyPriceTick, buyLowerTick, sellPriceTick, sellUpperTick, nil
-
 }
 
 func calculateAndRoundPriceToTick(price osmomath.BigDec) (int64, error) {
