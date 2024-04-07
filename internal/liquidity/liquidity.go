@@ -6,7 +6,7 @@ import (
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	clmath "github.com/osmosis-labs/osmosis/v23/x/concentrated-liquidity/math"
-	model "github.com/osmosis-labs/osmosis/v23/x/concentrated-liquidity/model"
+	"github.com/osmosis-labs/osmosis/v23/x/concentrated-liquidity/model"
 	cltypes "github.com/osmosis-labs/osmosis/v23/x/concentrated-liquidity/types"
 	"go.uber.org/zap"
 
@@ -15,20 +15,16 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-const TICK_SPACING = int64(100)
+const TickSpacing = int64(100)
 
 // createPositionMsg creates a new CL position message
-func createPositionMsg(poolId uint64, lowerTick, upperTick int64, tokens sdk.Coins, addr string, isBuy bool) sdk.Msg {
+func createPositionMsg(poolID uint64, lowerTick, upperTick int64, tokens sdk.Coins, addr string, isBuy bool) sdk.Msg {
 	var amount0, amount1 sdkmath.Int
-	if isBuy {
-		amount0, amount1 = sdk.ZeroInt(), sdk.ZeroInt()
-	} else {
-		amount0, amount1 = sdk.ZeroInt(), sdk.ZeroInt()
-	}
+	amount0, amount1 = sdk.ZeroInt(), sdk.ZeroInt()
 
 	// Generate the swap message
 	msg := cltypes.MsgCreatePosition{
-		PoolId:          poolId,
+		PoolId:          poolID,
 		Sender:          addr,
 		LowerTick:       lowerTick,
 		UpperTick:       upperTick,
@@ -130,20 +126,20 @@ func adjustForCurrentTick(l *zap.Logger, isBuy bool, currentTick, lowerTick, upp
 		fmt.Println("The value is within the range.")
 
 		if isBuy {
-			upperTick = currentTick - TICK_SPACING
+			upperTick = currentTick - TickSpacing
 		} else {
-			lowerTick = currentTick + TICK_SPACING
+			lowerTick = currentTick + TickSpacing
 		}
 	}
 
 	fmt.Println("lowerTick", lowerTick)
 
-	upperTick, err := clmath.RoundDownTickToSpacing(upperTick, TICK_SPACING)
+	upperTick, err := clmath.RoundDownTickToSpacing(upperTick, TickSpacing)
 	if err != nil {
 		l.Error("Failed to calculate buy price tick", zap.Error(err))
 	}
 
-	lowerTick, err = clmath.RoundDownTickToSpacing(lowerTick, TICK_SPACING)
+	lowerTick, err = clmath.RoundDownTickToSpacing(lowerTick, TickSpacing)
 	if err != nil {
 		l.Error("Failed to calculate buy price tick", zap.Error(err))
 	}
@@ -154,14 +150,16 @@ func adjustForCurrentTick(l *zap.Logger, isBuy bool, currentTick, lowerTick, upp
 		lowerDelta = -lowerDelta
 	}
 
-	// Check if lowerDelta is less than TICK_SPACING and adjust lowerTick if necessary
-	if lowerDelta < TICK_SPACING {
-		lowerTick += (3 * TICK_SPACING)
+	// Check if lowerDelta is less than TickSpacing and adjust lowerTick if necessary
+	if lowerDelta < TickSpacing {
+		lowerTick += (3 * TickSpacing)
 	}
 
 	return lowerTick, upperTick
 }
 
+// calculateBuySellTicks calculates the buy and sell ticks
+// TODO: we should return errors...
 func calculateBuySellTicks(l *zap.Logger, buyPrice, sellPrice, spread osmomath.BigDec) (int64, int64, int64, int64, error) {
 	// get the lower and upper bounds
 	buyLowerBound := buyPrice.Mul(osmomath.OneBigDec().Sub(spread))
@@ -197,7 +195,7 @@ func calculateAndRoundPriceToTick(price osmomath.BigDec) (int64, error) {
 		return 0, err
 	}
 
-	priceTick, err = clmath.RoundDownTickToSpacing(priceTick, TICK_SPACING)
+	priceTick, err = clmath.RoundDownTickToSpacing(priceTick, TickSpacing)
 	if err != nil {
 		return 0, err
 	}

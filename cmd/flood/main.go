@@ -97,7 +97,7 @@ func initialize(ctx context.Context, configPath string) (*zap.Logger, *types.Con
 	return l, cfg, client, conn
 }
 
-func handleEvent(l *zap.Logger, cfg *types.Config, ctx context.Context, address string, account cosmosaccount.Account, clients types.BlockchainClients, event ctypes.ResultEvent) {
+func handleEvent(ctx context.Context, l *zap.Logger, cfg *types.Config, address string, account cosmosaccount.Account, clients types.BlockchainClients, event ctypes.ResultEvent) {
 	// Get the power config and state
 	powerConfig, powerState, err := power.GetConfigAndState(ctx, clients.WasmClient, clients.Config.PowerPool.ContractAddress)
 	if err != nil {
@@ -266,7 +266,7 @@ func main() {
 	go func() {
 		for {
 			event := <-eventCh
-			handleEvent(l, cfg, ctx, address, account, clients, event)
+			handleEvent(ctx, l, cfg, address, account, clients, event)
 		}
 	}()
 

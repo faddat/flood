@@ -45,8 +45,8 @@ func GetSpotPrice(ctx context.Context, client poolmanager.QueryClient, poolConfi
 	return spotPrice.SpotPrice, nil
 }
 
-func GetCurrentTick(ctx context.Context, client poolmanager.QueryClient, poolId uint64) (int64, error) {
-	poolReq := poolmanager.PoolRequest{PoolId: poolId}
+func GetCurrentTick(ctx context.Context, client poolmanager.QueryClient, poolID uint64) (int64, error) {
+	poolReq := poolmanager.PoolRequest{PoolId: poolID}
 	res, err := client.Pool(ctx, &poolReq)
 	if err != nil {
 		return 0, err
@@ -63,8 +63,8 @@ func GetCurrentTick(ctx context.Context, client poolmanager.QueryClient, poolId 
 	return currentTick, nil
 }
 
-func GetTotalPoolLiquidity(ctx context.Context, client poolmanager.QueryClient, poolId uint64) (*poolmanager.TotalPoolLiquidityResponse, error) {
-	return client.TotalPoolLiquidity(ctx, &poolmanager.TotalPoolLiquidityRequest{PoolId: poolId})
+func GetTotalPoolLiquidity(ctx context.Context, client poolmanager.QueryClient, poolID uint64) (*poolmanager.TotalPoolLiquidityResponse, error) {
+	return client.TotalPoolLiquidity(ctx, &poolmanager.TotalPoolLiquidityRequest{PoolId: poolID})
 }
 
 func GetSpotPrices(ctx context.Context, poolManagerClient poolmanager.QueryClient, config types.GetConfigResponse) (string, string, error) {
