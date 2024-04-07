@@ -99,7 +99,7 @@ func initialize(ctx context.Context, configPath string) (*zap.Logger, *types.Con
 	return l, cfg, client, conn
 }
 
-func handleEvent(l *zap.Logger, cfg *types.Config, ctx context.Context, cosmosClient *cosmosclient.Client, queryClient *query.Client, event ctypes.ResultEvent) {
+func handleEvent(ctx context.Context, l *zap.Logger, cfg *types.Config, cosmosClient *cosmosclient.Client, queryClient *query.Client, event ctypes.ResultEvent) {
 	// Get the signer account
 	account, err := cosmosClient.Account(cfg.SignerAccount)
 	if err != nil {
@@ -257,13 +257,13 @@ func main() {
 	}
 
 	// Generate the query we are listening for, in this case tokens swapped in a pool
-	query := fmt.Sprintf("token_swapped.module = 'gamm' AND token_swapped.pool_id = '%d'", cfg.PowerPool.PoolId)
+	queryResult := fmt.Sprintf("token_swapped.module = 'gamm' AND token_swapped.pool_id = '%d'", cfg.PowerPool.PoolId)
 	// query := "token_swapped.module = 'gamm'"
 
 	// An arbitraty string to identify the subscription needed for the client
 	subscriber := "gobot"
 
-	eventCh, err := wsClient.Subscribe(ctx, subscriber, query)
+	eventCh, err := wsClient.Subscribe(ctx, subscriber, queryResult)
 	if err != nil {
 		l.Fatal("Error subscribing websocket client",
 			zap.Error(err),
@@ -273,7 +273,7 @@ func main() {
 	go func() {
 		for {
 			event := <-eventCh
-			handleEvent(l, cfg, ctx, cosmosClient, queryClient, event)
+			handleEvent(ctx, l, cfg, cosmosClient, queryClient, event)
 		}
 	}()
 

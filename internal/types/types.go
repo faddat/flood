@@ -12,7 +12,7 @@ type Asset struct {
 }
 
 type PowerPool struct {
-	PoolId          uint64 `toml:"pool_id"` //nolint:revive // PoolId is a valid field name
+	PoolId          uint64 `toml:"pool_id"` //nolint:revive,stylecheck // PoolId is a valid field name
 	BaseAsset       string `toml:"base_asset"`
 	QuoteAsset      string `toml:"quote_asset"`
 	ContractAddress string `toml:"contract_address"`

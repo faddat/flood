@@ -67,7 +67,7 @@ func RemovePreviousPositions(l *zap.Logger, positions []model.FullPositionBreakd
 }
 
 // marketMake creates a market making positions
-func MarketMake(l *zap.Logger, poolId uint64, currentTick int64, spotPrice, targetPrice, spread string, token0 sdk.Coin, token1 sdk.Coin, addr string) ([]sdk.Msg, error) {
+func MarketMake(l *zap.Logger, poolID uint64, currentTick int64, spotPrice, targetPrice, spread string, token0 sdk.Coin, token1 sdk.Coin, addr string) ([]sdk.Msg, error) {
 	l.Debug("inputs",
 		zap.String("spotPrice", spotPrice),
 		zap.String("targetPrice", targetPrice),
@@ -110,8 +110,8 @@ func MarketMake(l *zap.Logger, poolId uint64, currentTick int64, spotPrice, targ
 		return nil, err
 	}
 
-	buyPosition := createPositionMsg(poolId, lowTick, buyTick, sdk.NewCoins(token1), addr, true)
-	sellPosition := createPositionMsg(poolId, sellTick, highTick, sdk.NewCoins(token0), addr, false)
+	buyPosition := createPositionMsg(poolID, lowTick, buyTick, sdk.NewCoins(token1), addr, true)
+	sellPosition := createPositionMsg(poolID, sellTick, highTick, sdk.NewCoins(token0), addr, false)
 
 	fmt.Println("buyPosition", buyPosition)
 	fmt.Println("sellPosition", sellPosition)
