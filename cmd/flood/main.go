@@ -8,21 +8,23 @@ import (
 	"os"
 	"strconv"
 
-	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	"github.com/ignite/cli/ignite/pkg/cosmosaccount"
 	"github.com/ignite/cli/ignite/pkg/cosmosclient"
+	floodauthz "github.com/margined-protocol/flood/internal/authz"
 	"github.com/margined-protocol/flood/internal/config"
 	"github.com/margined-protocol/flood/internal/liquidity"
 	"github.com/margined-protocol/flood/internal/logger"
 	"github.com/margined-protocol/flood/internal/maths"
 	"github.com/margined-protocol/flood/internal/power"
 	"github.com/margined-protocol/flood/internal/queries"
+	"github.com/margined-protocol/flood/internal/query"
 	"github.com/margined-protocol/flood/internal/types"
-	clquery "github.com/osmosis-labs/osmosis/v23/x/concentrated-liquidity/client/queryproto"
-	pmquery "github.com/osmosis-labs/osmosis/v23/x/poolmanager/client/queryproto"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/x/authz"
 
 	rpchttp "github.com/cometbft/cometbft/rpc/client/http"
 	ctypes "github.com/cometbft/cometbft/rpc/core/types"
@@ -97,81 +99,118 @@ func initialize(ctx context.Context, configPath string) (*zap.Logger, *types.Con
 	return l, cfg, client, conn
 }
 
-func handleEvent(ctx context.Context, l *zap.Logger, cfg *types.Config, address string, account cosmosaccount.Account, clients types.BlockchainClients, event ctypes.ResultEvent) {
-	// Get the power config and state
-	powerConfig, powerState, err := power.GetConfigAndState(ctx, clients.WasmClient, clients.Config.PowerPool.ContractAddress)
+func handleEvent(l *zap.Logger, cfg *types.Config, ctx context.Context, cosmosClient *cosmosclient.Client, queryClient *query.QueryClient, event ctypes.ResultEvent) {
+	// Get the signer account
+	account, err := cosmosClient.Account(cfg.SignerAccount)
 	if err != nil {
-		l.Fatal("Failed to get config and state: %v", zap.Error(err))
+		l.Fatal("Error fetching signer account",
+			zap.Error(err),
+		)
 	}
 
-	// Get the spotprices for base and power
-	baseSpotPrice, powerSpotPrice, err := queries.GetSpotPrices(ctx, clients.PMClient, powerConfig)
+	// Get the signer address
+	address, err := account.Address(cfg.AddressPrefix)
 	if err != nil {
-		l.Fatal("Failed to fetch spot prices", zap.Error(err))
+		l.Fatal("Error fetching signer address",
+			zap.Error(err),
+		)
 	}
 
-	// Calculate the mark price
-	markPrice, err := maths.CalculateMarkPrice(baseSpotPrice, powerSpotPrice, powerState.NormalisationFactor, powerConfig.IndexScale)
+	validGranters, err := floodauthz.GetValidGrantersWithRequiredGrants(ctx, queryClient, address, l)
 	if err != nil {
-		l.Fatal("Failed to calculate mark price", zap.Error(err))
+		l.Fatal("Error fetching valid granters", zap.Error(err))
 	}
 
-	// Calcuate the index price
-	indexPrice, err := maths.CalculateIndexPrice(baseSpotPrice)
-	if err != nil {
-		l.Fatal("Failed to calculate index price", zap.Error(err))
+	// Initialize a slice to hold all messages
+	var allMsgs []sdk.Msg
+
+	for _, granter := range validGranters {
+		l.Debug("Granter with all required grants", zap.String("granter", granter))
+
+		// Get the power config and state
+		powerConfig, powerState, err := power.GetConfigAndState(ctx, queryClient.Wasm, cfg.PowerPool.ContractAddress)
+		if err != nil {
+			l.Fatal("Failed to get config and state: %v", zap.Error(err))
+		}
+
+		// Get the spotprices for base and power
+		baseSpotPrice, powerSpotPrice, err := queries.GetSpotPrices(ctx, queryClient.PoolManager, powerConfig)
+		if err != nil {
+			l.Fatal("Failed to fetch spot prices", zap.Error(err))
+		}
+
+		// Calculate the mark price
+		markPrice, err := maths.CalculateMarkPrice(baseSpotPrice, powerSpotPrice, powerState.NormalisationFactor, powerConfig.IndexScale)
+		if err != nil {
+			l.Fatal("Failed to calculate mark price", zap.Error(err))
+		}
+
+		// Calcuate the index price
+		indexPrice, err := maths.CalculateIndexPrice(baseSpotPrice)
+		if err != nil {
+			l.Fatal("Failed to calculate index price", zap.Error(err))
+		}
+
+		// Calculate the target price
+		targetPrice, err := maths.CalculateTargetPrice(baseSpotPrice, powerState.NormalisationFactor, powerConfig.IndexScale)
+		if err != nil {
+			l.Fatal("Failed to calculate target price", zap.Error(err))
+		}
+
+		// Calculate the premium
+		premium := maths.CalculatePremium(markPrice, indexPrice)
+
+		// get inverse target and spot prices
+		floatPowerSpotPrice, err := strconv.ParseFloat(powerSpotPrice, 64)
+		if err != nil {
+			l.Fatal("Failed to parse power spot price", zap.Error(err))
+		}
+
+		inverseTargetPrice := 1 / targetPrice
+		inversePowerPrice := 1 / floatPowerSpotPrice
+
+		// Now lets check if we have any open CL positions for the granter
+		userPositions, err := queries.GetUserPositions(ctx, queryClient.ConcentratedLiquidity, powerConfig.PowerPool, granter)
+		if err != nil {
+			l.Fatal("Failed to find user positions", zap.Error(err))
+		}
+
+		currentTick, err := queries.GetCurrentTick(ctx, queryClient.PoolManager, powerConfig.PowerPool.ID)
+		if err != nil {
+			l.Fatal("Failed to get current tick", zap.Error(err))
+		}
+
+		// Sanity check computations
+		l.Debug("Summary data",
+			zap.Float64("mark_price", markPrice),
+			zap.Float64("target_price", targetPrice),
+			zap.Float64("inverse_target_price", inverseTargetPrice),
+			zap.String("power_price", powerSpotPrice),
+			zap.Float64("inverse_power_price", inversePowerPrice),
+			zap.Float64("premium", premium),
+			zap.String("normalization_factor", powerState.NormalisationFactor),
+			zap.Int64("current_tick", currentTick),
+		)
+
+		powerPriceStr := fmt.Sprintf("%f", inversePowerPrice)
+		targetPriceStr := fmt.Sprintf("%f", inverseTargetPrice)
+
+		msgs, err := liquidity.CreateUpdatePositionMsgs(l, *userPositions, cfg, currentTick, granter, powerPriceStr, targetPriceStr)
+		if err != nil {
+			l.Fatal("Failed to create update position msgs", zap.Error(err))
+		}
+
+		allMsgs = append(allMsgs, msgs...)
 	}
 
-	// Calculate the target price
-	targetPrice, err := maths.CalculateTargetPrice(baseSpotPrice, powerState.NormalisationFactor, powerConfig.IndexScale)
+	grantee, err := sdk.AccAddressFromBech32(address)
 	if err != nil {
-		l.Fatal("Failed to calculate target price", zap.Error(err))
+		l.Error("Failed to generate AccAddress", zap.String("address", address))
 	}
 
-	// Calculate the premium
-	premium := maths.CalculatePremium(markPrice, indexPrice)
+	msgExec := authz.NewMsgExec(grantee, allMsgs)
 
-	// get inverse target and spot prices
-	floatPowerSpotPrice, err := strconv.ParseFloat(powerSpotPrice, 64)
-	if err != nil {
-		l.Fatal("Failed to parse power spot price", zap.Error(err))
-	}
-
-	inverseTargetPrice := 1 / targetPrice
-	inversePowerPrice := 1 / floatPowerSpotPrice
-
-	// Now lets check if we have any open CL positions for the bot
-	userPositions, err := queries.GetUserPositions(ctx, clients.CLClient, powerConfig.PowerPool, address)
-	if err != nil {
-		l.Fatal("Failed to find user positions", zap.Error(err))
-	}
-
-	currentTick, err := queries.GetCurrentTick(ctx, clients.PMClient, powerConfig.PowerPool.ID)
-	if err != nil {
-		l.Fatal("Failed to get current tick", zap.Error(err))
-	}
-
-	// Sanity check computations
-	l.Debug("Summary data",
-		zap.Float64("mark_price", markPrice),
-		zap.Float64("target_price", targetPrice),
-		zap.Float64("inverse_target_price", inverseTargetPrice),
-		zap.String("power_price", powerSpotPrice),
-		zap.Float64("inverse_power_price", inversePowerPrice),
-		zap.Float64("premium", premium),
-		zap.String("normalization_factor", powerState.NormalisationFactor),
-		zap.Int64("current_tick", currentTick),
-	)
-
-	powerPriceStr := fmt.Sprintf("%f", inversePowerPrice)
-	targetPriceStr := fmt.Sprintf("%f", inverseTargetPrice)
-
-	msgs, err := liquidity.CreateUpdatePositionMsgs(l, *userPositions, cfg, currentTick, address, powerPriceStr, targetPriceStr)
-	if err != nil {
-		l.Fatal("Failed to create update position msgs", zap.Error(err))
-	}
-
-	txResp, err := clients.CosmosClient.BroadcastTx(ctx, account, msgs...)
+	txResp, err := cosmosClient.BroadcastTx(ctx, account, &msgExec)
 	if err != nil {
 		l.Error("Transaction error",
 			zap.Error(err),
@@ -193,37 +232,16 @@ func main() {
 	ctx := context.Background()
 
 	// Intialise logger, config, comsosclient and grpc client
-	l, cfg, client, conn := initialize(ctx, *configPath)
+	l, cfg, cosmosClient, conn := initialize(ctx, *configPath)
 	defer conn.Close()
 
-	// Get the client account
-	account, err := client.Account(cfg.SignerAccount)
+	// Initialise a grpc query client
+	queryClient, err := query.NewQueryClient(conn)
 	if err != nil {
-		l.Fatal("Error fetching signer account",
+		l.Fatal("Error intitialising query client",
 			zap.Error(err),
 		)
 	}
-
-	// Get the client address
-	//nolint:staticcheck
-	address, err := account.Address(cfg.AddressPrefix)
-	if err != nil {
-		l.Fatal("Error fetching signer address",
-			zap.Error(err),
-		)
-	}
-
-	// Initialise a wasm query client to read state from power contract
-	//nolint:staticcheck
-	c := wasmtypes.NewQueryClient(client.Context())
-
-	// Initialise a poolmanager query client
-	//nolint:staticcheck
-	pmClient := pmquery.NewQueryClient(client.Context())
-
-	// Initialise a concentrated liquidity query client
-	//nolint:staticcheck
-	clClient := clquery.NewQueryClient(client.Context())
 
 	// Initialise a websocket client
 	wsClient, err := rpchttp.New(cfg.RPCServerAddress, cfg.WebsocketPath)
@@ -245,7 +263,6 @@ func main() {
 	// An arbitraty string to identify the subscription needed for the client
 	subscriber := "gobot"
 
-	//nolint:staticcheck
 	eventCh, err := wsClient.Subscribe(ctx, subscriber, query)
 	if err != nil {
 		l.Fatal("Error subscribing websocket client",
@@ -253,20 +270,10 @@ func main() {
 		)
 	}
 
-	// Wrap the numerous clients for convenience
-	clients := types.BlockchainClients{
-		CosmosClient:    client,
-		WebsocketClient: wsClient,
-		WasmClient:      c,
-		PMClient:        pmClient,
-		CLClient:        clClient,
-		Config:          cfg,
-	}
-
 	go func() {
 		for {
 			event := <-eventCh
-			handleEvent(ctx, l, cfg, address, account, clients, event)
+			handleEvent(l, cfg, ctx, cosmosClient, queryClient, event)
 		}
 	}()
 
