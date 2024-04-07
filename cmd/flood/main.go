@@ -99,7 +99,7 @@ func initialize(ctx context.Context, configPath string) (*zap.Logger, *types.Con
 	return l, cfg, client, conn
 }
 
-func handleEvent(l *zap.Logger, cfg *types.Config, ctx context.Context, cosmosClient *cosmosclient.Client, queryClient *query.QueryClient, event ctypes.ResultEvent) {
+func handleEvent(l *zap.Logger, cfg *types.Config, ctx context.Context, cosmosClient *cosmosclient.Client, queryClient *query.Client, event ctypes.ResultEvent) {
 	// Get the signer account
 	account, err := cosmosClient.Account(cfg.SignerAccount)
 	if err != nil {

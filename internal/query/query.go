@@ -11,7 +11,7 @@ import (
 )
 
 // QueryClient is a wrapper with Cosmos and Osmosis grpc query clients
-type QueryClient struct {
+type Client struct {
 	// cosmos-sdk query clients
 	Authz authz.QueryClient
 	Bank  banktypes.QueryClient
@@ -25,8 +25,8 @@ type QueryClient struct {
 }
 
 // NewQueryClient creates a new QueryClient and initializes all the module query clients
-func NewQueryClient(conn *grpc.ClientConn) (*QueryClient, error) {
-	client := &QueryClient{
+func NewQueryClient(conn *grpc.ClientConn) (*Client, error) {
+	client := &Client{
 		Authz:                 authz.NewQueryClient(conn),
 		Bank:                  banktypes.NewQueryClient(conn),
 		Wasm:                  wasmtypes.NewQueryClient(conn),
