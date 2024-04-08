@@ -120,42 +120,48 @@ func MarketMake(l *zap.Logger, poolID uint64, currentTick int64, spotPrice, targ
 }
 
 func adjustForCurrentTick(l *zap.Logger, isBuy bool, currentTick, lowerTick, upperTick int64) (int64, int64) {
-	fmt.Println("lowerTick", lowerTick)
-
 	if lowerTick <= currentTick && currentTick <= upperTick {
-		fmt.Println("The value is within the range.")
-
-		if isBuy {
-			upperTick = currentTick - TickSpacing
-		} else {
-			lowerTick = currentTick + TickSpacing
-		}
+		lowerTick, upperTick = adjustTicksWithinRange(isBuy, currentTick, lowerTick, upperTick)
 	}
 
-	fmt.Println("lowerTick", lowerTick)
+	upperTick = roundDownTick(l, upperTick)
+	lowerTick = roundDownTick(l, lowerTick)
 
-	upperTick, err := clmath.RoundDownTickToSpacing(upperTick, TickSpacing)
+	lowerTick = adjustLowerTick(currentTick, lowerTick)
+
+	return lowerTick, upperTick
+}
+
+func adjustTicksWithinRange(isBuy bool, currentTick, lowerTick, upperTick int64) (int64, int64) {
+	if isBuy {
+		upperTick = currentTick - TickSpacing
+	} else {
+		lowerTick = currentTick + TickSpacing
+	}
+	return lowerTick, upperTick
+}
+
+func roundDownTick(l *zap.Logger, tick int64) int64 {
+	roundedTick, err := clmath.RoundDownTickToSpacing(tick, TickSpacing)
 	if err != nil {
-		l.Error("Failed to calculate buy price tick", zap.Error(err))
+		l.Error("Failed to round down tick", zap.Error(err))
 	}
+	return roundedTick
+}
 
-	lowerTick, err = clmath.RoundDownTickToSpacing(lowerTick, TickSpacing)
-	if err != nil {
-		l.Error("Failed to calculate buy price tick", zap.Error(err))
-	}
-
-	// Calculate the absolute difference
-	lowerDelta := currentTick - lowerTick
-	if lowerDelta < 0 {
-		lowerDelta = -lowerDelta
-	}
-
-	// Check if lowerDelta is less than TickSpacing and adjust lowerTick if necessary
+func adjustLowerTick(currentTick, lowerTick int64) int64 {
+	lowerDelta := abs(currentTick - lowerTick)
 	if lowerDelta < TickSpacing {
 		lowerTick += (3 * TickSpacing)
 	}
+	return lowerTick
+}
 
-	return lowerTick, upperTick
+func abs(x int64) int64 {
+	if x < 0 {
+		return -x
+	}
+	return x
 }
 
 // calculateBuySellTicks calculates the buy and sell ticks
