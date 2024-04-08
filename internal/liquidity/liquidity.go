@@ -18,7 +18,7 @@ import (
 const TickSpacing = int64(100)
 
 // createPositionMsg creates a new CL position message
-func createPositionMsg(poolID uint64, lowerTick, upperTick int64, tokens sdk.Coins, addr string, isBuy bool) sdk.Msg {
+func createPositionMsg(poolID uint64, lowerTick, upperTick int64, tokens sdk.Coins, addr string, _ bool) sdk.Msg {
 	var amount0, amount1 sdkmath.Int
 	amount0, amount1 = sdk.ZeroInt(), sdk.ZeroInt()
 
@@ -160,7 +160,7 @@ func adjustForCurrentTick(l *zap.Logger, isBuy bool, currentTick, lowerTick, upp
 
 // calculateBuySellTicks calculates the buy and sell ticks
 // TODO: we should return errors...
-func calculateBuySellTicks(l *zap.Logger, buyPrice, sellPrice, spread osmomath.BigDec) (int64, int64, int64, int64, error) {
+func calculateBuySellTicks(l *zap.Logger, buyPrice, sellPrice, spread osmomath.BigDec) (int64, int64, int64, int64, error) { //nolint:unparam
 	// get the lower and upper bounds
 	buyLowerBound := buyPrice.Mul(osmomath.OneBigDec().Sub(spread))
 	sellUpperBound := sellPrice.Mul(osmomath.OneBigDec().Add(spread))
