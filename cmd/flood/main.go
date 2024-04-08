@@ -99,7 +99,7 @@ func initialize(ctx context.Context, configPath string) (*zap.Logger, *types.Con
 	return l, cfg, client, conn
 }
 
-func handleEvent(ctx context.Context, l *zap.Logger, cfg *types.Config, cosmosClient *cosmosclient.Client, queryClient *query.Client, event ctypes.ResultEvent) {
+func handleEvent(ctx context.Context, l *zap.Logger, cfg *types.Config, cosmosClient *cosmosclient.Client, queryClient *query.Client, _ ctypes.ResultEvent) { //nolint:cognitive-complexity,revive
 	// Get the signer account
 	account, err := cosmosClient.Account(cfg.SignerAccount)
 	if err != nil {
@@ -225,58 +225,58 @@ func handleEvent(ctx context.Context, l *zap.Logger, cfg *types.Config, cosmosCl
 func main() {
 	parseFlags()
 	if *showVersion {
-		fmt.Printf("Version: %s\nBuild Date: %s\n", Version, BuildDate)
-		os.Exit(0)
+		printVersion()
+		return
 	}
 
 	ctx := context.Background()
-
-	// Intialise logger, config, comsosclient and grpc client
 	l, cfg, cosmosClient, conn := initialize(ctx, *configPath)
 	defer conn.Close()
 
-	// Initialise a grpc query client
+	queryClient := initQueryClient(l, conn)
+	wsClient := initWebSocketClient(l, cfg)
+	subscribeToEvents(ctx, l, cfg, cosmosClient, queryClient, wsClient)
+
+	select {}
+}
+
+func printVersion() {
+	fmt.Printf("Version: %s\nBuild Date: %s\n", Version, BuildDate)
+	os.Exit(0)
+}
+
+func initQueryClient(l *zap.Logger, conn *grpc.ClientConn) *query.Client {
 	queryClient, err := query.NewQueryClient(conn)
 	if err != nil {
-		l.Fatal("Error intitialising query client",
-			zap.Error(err),
-		)
+		l.Fatal("Error initializing query client", zap.Error(err))
 	}
+	return queryClient
+}
 
-	// Initialise a websocket client
+func initWebSocketClient(l *zap.Logger, cfg *types.Config) *rpchttp.HTTP {
 	wsClient, err := rpchttp.New(cfg.RPCServerAddress, cfg.WebsocketPath)
 	if err != nil {
 		l.Fatal("Error subscribing to websocket client", zap.Error(err))
 	}
-
 	err = wsClient.Start()
 	if err != nil {
-		l.Fatal("Error starting websocket client",
-			zap.Error(err),
-		)
+		l.Fatal("Error starting websocket client", zap.Error(err))
 	}
+	return wsClient
+}
 
-	// Generate the query we are listening for, in this case tokens swapped in a pool
+func subscribeToEvents(ctx context.Context, l *zap.Logger, cfg *types.Config, cosmosClient *cosmosclient.Client, queryClient *query.Client, wsClient *rpchttp.HTTP) {
 	queryResult := fmt.Sprintf("token_swapped.module = 'gamm' AND token_swapped.pool_id = '%d'", cfg.PowerPool.PoolId)
-	// query := "token_swapped.module = 'gamm'"
-
-	// An arbitraty string to identify the subscription needed for the client
 	subscriber := "gobot"
 
 	eventCh, err := wsClient.Subscribe(ctx, subscriber, queryResult)
 	if err != nil {
-		l.Fatal("Error subscribing websocket client",
-			zap.Error(err),
-		)
+		l.Fatal("Error subscribing websocket client", zap.Error(err))
 	}
 
 	go func() {
-		for {
-			event := <-eventCh
+		for event := range eventCh {
 			handleEvent(ctx, l, cfg, cosmosClient, queryClient, event)
 		}
 	}()
-
-	// Keep the main goroutine running
-	select {}
 }
