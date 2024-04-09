@@ -2,7 +2,7 @@ package liquidity
 
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	clquery "github.com/osmosis-labs/osmosis/v21/x/concentrated-liquidity/client/queryproto"
+	clquery "github.com/osmosis-labs/osmosis/v24/x/concentrated-liquidity/client/queryproto"
 	"go.uber.org/zap"
 
 	"github.com/margined-protocol/flood/internal/types"
