@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/osmosis-labs/osmosis/v24/tests/e2e/util"
+	cl "github.com/osmosis-labs/osmosis/v24/x/concentrated-liquidity/client/queryproto"
+	cltypes "github.com/osmosis-labs/osmosis/v24/x/concentrated-liquidity/types"
+	poolmanager "github.com/osmosis-labs/osmosis/v24/x/poolmanager/client/queryproto"
+	pmtypes "github.com/osmosis-labs/osmosis/v24/x/poolmanager/types"
+
 	"github.com/margined-protocol/flood/internal/types"
-	"github.com/osmosis-labs/osmosis/v23/tests/e2e/util"
-	cl "github.com/osmosis-labs/osmosis/v23/x/concentrated-liquidity/client/queryproto"
-	cltypes "github.com/osmosis-labs/osmosis/v23/x/concentrated-liquidity/types"
-	poolmanager "github.com/osmosis-labs/osmosis/v23/x/poolmanager/client/queryproto"
-	pmtypes "github.com/osmosis-labs/osmosis/v23/x/poolmanager/types"
 )
 
 func GetUserPositions(ctx context.Context, client cl.QueryClient, poolConfig types.Pool, user string) (*cl.UserPositionsResponse, error) {
