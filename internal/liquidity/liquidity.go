@@ -7,9 +7,9 @@ import (
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/osmosis-labs/osmosis/osmomath"
-	clmath "github.com/osmosis-labs/osmosis/v21/x/concentrated-liquidity/math"
-	model "github.com/osmosis-labs/osmosis/v21/x/concentrated-liquidity/model"
-	cltypes "github.com/osmosis-labs/osmosis/v21/x/concentrated-liquidity/types"
+	clmath "github.com/osmosis-labs/osmosis/v24/x/concentrated-liquidity/math"
+	model "github.com/osmosis-labs/osmosis/v24/x/concentrated-liquidity/model"
+	cltypes "github.com/osmosis-labs/osmosis/v24/x/concentrated-liquidity/types"
 	"go.uber.org/zap"
 )
 
