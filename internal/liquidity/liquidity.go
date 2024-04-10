@@ -6,7 +6,7 @@ import (
 
 	"github.com/osmosis-labs/osmosis/osmomath"
 	clmath "github.com/osmosis-labs/osmosis/v24/x/concentrated-liquidity/math"
-	model "github.com/osmosis-labs/osmosis/v24/x/concentrated-liquidity/model"
+	"github.com/osmosis-labs/osmosis/v24/x/concentrated-liquidity/model"
 	cltypes "github.com/osmosis-labs/osmosis/v24/x/concentrated-liquidity/types"
 	"go.uber.org/zap"
 
